@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>ACOFUSION · Nordic Lighting Layers (No Daylight)</title>
+<style>
+  /* Nordic light theme */
+  :root{
+    --ink:#222; --muted:#6b7280; --line:#e5e7eb; --bg:#f7f7f7; --card:#ffffff;
+    --accent:#3b82f6; --accent-ink:#fff;
+  }
+  *{box-sizing:border-box} html,body{height:100%}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font:15px/1.6 system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Noto Sans TC";
+    display:flex; flex-direction:column; align-items:center; gap:18px; padding:24px;
+  }
+  header{width:min(1200px,96vw); display:flex; align-items:center; justify-content:space-between}
+  .brand{display:flex; align-items:center; gap:12px}
+  .logo{width:28px; height:28px; border-radius:7px; background:var(--ink); opacity:.85}
+  h1{margin:0; font-weight:600; font-size:18px; letter-spacing:.2px}
+
+  .toolbar{display:flex; gap:8px; align-items:center; flex-wrap:wrap}
+  select,.btn{
+    appearance:none; border:1px solid var(--line); background:#fff; color:var(--ink);
+    padding:8px 12px; border-radius:10px; cursor:pointer; font-weight:600
+  }
+  .btn.primary{ background:var(--accent); color:var(--accent-ink); border-color:transparent }
+  .sub{font-size:12px; color:var(--muted)}
+
+  .stage-wrap{
+    position:relative; width:min(1200px,96vw);
+    /* aspect-ratio 將在 JS 依 base.jpg 自動設定 */
+    border-radius:16px; overflow:hidden; background:#0b0c0f;
+    box-shadow:0 12px 40px #0002, 0 1px 0 #00000008;
+    border:1px solid var(--line);
+  }
+  .stage{position:absolute; inset:0}
+  .stage img{position:absolute; inset:0; width:100%; height:100%; object-fit:cover; image-rendering:auto}
+  .base{z-index:1}
+  .layer{z-index:2; opacity:.6; mix-blend-mode:screen; transition:opacity .08s linear}
+  .loading{position:absolute; inset:0; display:grid; place-items:center; color:#fff; background:#0005; z-index:9}
+  .errorbar{position:absolute; left:0; right:0; top:0; padding:10px 14px; background:#f87171; color:#fff; font-size:13px; display:none; z-index:10}
+
+  .panel{
+    width:min(1200px,96vw); background:var(--card); border:1px solid var(--line);
+    border-radius:16px; padding:16px; box-shadow:0 6px 24px #0000000d;
+  }
+  .head{display:flex; justify-content:space-between; align-items:center; margin-bottom:8px}
+  .grid{display:grid; gap:12px}
+  @media (min-width:900px){ .grid{grid-template-columns:repeat(4,1fr)} }
+  .group{display:flex; flex-direction:column; gap:8px; background:#fff; padding:12px; border:1px solid var(--line); border-radius:12px}
+  .group label{font-size:12px; color:var(--muted); display:flex; justify-content:space-between}
+  .pill{font-size:12px; color:#111; padding:2px 8px; border-radius:999px; border:1px solid var(--line); background:#fafafa}
+
+  input[type=range]{-webkit-appearance:none; appearance:none; width:100%; height:10px; border-radius:999px; background:#eef2f7}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%; background:var(--accent); border:2px solid #fff; box-shadow:0 1px 0 #0001; cursor:pointer}
+  input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%; background:var(--accent); border:2px solid #fff; cursor:pointer}
+
+  .chips{display:flex; flex-wrap:wrap; gap:8px; margin-top:10px}
+  .chip{padding:8px 12px; border-radius:999px; border:1px solid var(--line); background:#fff; cursor:pointer; font-weight:600}
+  .chip.active{background:var(--accent); color:#fff; border-color:transparent}
+
+  /* Alignment Lab (collapsible) */
+  details.align{width:min(1200px,96vw)}
+  details.align > summary{
+    list-style:none; cursor:pointer; padding:10px 12px; border:1px solid var(--line); border-radius:12px; background:#fff;
+    box-shadow:0 4px 16px #0000000a; font-weight:600
+  }
+  details.align[open] > summary{border-bottom-left-radius:0;border-bottom-right-radius:0}
+  .align-body{border:1px solid var(--line); border-top:none; border-bottom-left-radius:12px; border-bottom-right-radius:12px; padding:12px; background:#fff}
+  .align-grid{display:grid; gap:8px}
+  @media (min-width:900px){ .align-grid{grid-template-columns:repeat(4,1fr)} }
+  .mini{display:flex; gap:6px; align-items:center; font-size:12px; color:var(--muted)}
+</style>
+</head>
+<body>
+  <header>
+    <div class="brand"><div class="logo"></div><h1>ACOFUSION · Nordic Lighting Layers</h1></div>
+    <div class="toolbar">
+      <label class="sub">Blend
+        <select id="blend">
+          <option value="screen" selected>Screen</option>
+          <option value="normal">Normal</option>
+          <option value="lighten">Lighten</option>
+          <option value="plus-lighter">Plus Lighter</option>
+        </select>
+      </label>
+      <button class="btn" id="reset">Reset</button>
+    </div>
+  </header>
+
+  <div class="stage-wrap" id="wrap">
+    <div class="errorbar" id="err"></div>
+    <div class="loading" id="loading">Loading images…</div>
+    <div class="stage">
+      <!-- 固定你的 5 張檔名 -->
+      <img class="base"  id="img-base" src="base.jpg"        alt="Base"/>
+      <img class="layer" id="img-wall" src="Wallwash.png"    alt="Wallwash"/>
+      <img class="layer" id="img-amb"  src="Ambient.png"     alt="Ambient"/>
+      <img class="layer" id="img-acc"  src="Accent.png"      alt="Accent"/>
+      <img class="layer" id="img-dec"  src="Decorative.png"  alt="Decorative"/>
+    </div>
+  </div>
+
+  <section class="panel">
+    <div class="head">
+      <div class="sub">Adjust layer intensities (no daylight). Presets for restaurant scenes.</div>
+    </div>
+    <div class="grid">
+      <div class="group"><label>Wallwash <span class="pill" id="v-wall">60%</span></label>
+        <input type="range" id="s-wall" min="0" max="100" step="1" value="60"/></div>
+      <div class="group"><label>Ambient <span class="pill" id="v-amb">45%</span></label>
+        <input type="range" id="s-amb"  min="0" max="100" step="1" value="45"/></div>
+      <div class="group"><label>Accent <span class="pill" id="v-acc">70%</span></label>
+        <input type="range" id="s-acc"  min="0" max="100" step="1" value="70"/></div>
+      <div class="group"><label>Decorative <span class="pill" id="v-dec">35%</span></label>
+        <input type="range" id="s-dec"  min="0" max="100" step="1" value="35"/></div>
+    </div>
+    <div class="chips" role="group" aria-label="Presets">
+      <button class="chip" data-preset='{"wall":65,"amb":35,"acc":85,"dec":25}'>Dining Focus</button>
+      <button class="chip" data-preset='{"wall":55,"amb":55,"acc":60,"dec":35}'>Balanced Service</button>
+      <button class="chip" data-preset='{"wall":35,"amb":70,"acc":40,"dec":55}'>Warm Lounge</button>
+      <button class="chip" data-preset='{"wall":85,"amb":30,"acc":45,"dec":20}'>Gallery-like Walls</button>
+      <button class="chip" data-preset='{"wall":20,"amb":25,"acc":30,"dec":15}'>Cleaning (Dim)</button>
+    </div>
+  </section>
+
+  <!-- 對位工具：需要時展開使用 -->
+  <details class="align">
+    <summary>Alignment Lab (optional) — fine-tune offset/scale & DIFF view</summary>
+    <div class="align-body">
+      <label class="mini"><input type="checkbox" id="diff"> Show DIFF blend (debug)</label>
+      <div class="align-grid" id="alignGrid"></div>
+      <div class="sub" style="margin-top:6px">
+        Tip: In DIFF mode，邊緣若出亮框代表未對齊；調到整畫面趨近全暗即為 pixel-perfect。
+      </div>
+    </div>
+  </details>
+
+<script>
+(function(){
+  const $ = (s)=>document.querySelector(s);
+  const wrap = $('#wrap'), err=$('#err'), loading=$('#loading');
+
+  const EL = {
+    base: $('#img-base'),
+    wall: $('#img-wall'),
+    amb : $('#img-amb'),
+    acc : $('#img-acc'),
+    dec : $('#img-dec')
+  };
+
+  const sliders = {
+    wall: $('#s-wall'), amb: $('#s-amb'), acc: $('#s-acc'), dec: $('#s-dec')
+  };
+  const pills   = { wall: $('#v-wall'), amb: $('#v-amb'), acc: $('#v-acc'), dec: $('#v-dec') };
+
+  // Preload & size/a.ratio
+  const files=['base.jpg','Wallwash.png','Ambient.png','Accent.png','Decorative.png'];
+  Promise.all(files.map(src=>new Promise(res=>{
+    const i=new Image(); i.onload=()=>res({src,w:i.naturalWidth,h:i.naturalHeight,ok:true});
+    i.onerror=()=>res({src,ok:false}); i.src=src;
+  }))).then(arr=>{
+    loading && loading.remove();
+    const missing=arr.filter(x=>!x.ok).map(x=>x.src);
+    let msg='';
+    if(missing.length) msg+='Missing files: '+missing.join(', ')+' . ';
+    const ok=arr.filter(x=>x.ok);
+    if(ok.length){
+      // Set stage aspect to base size (first ok that is base)
+      const baseInfo = arr.find(x=>x.src.includes('base')) || ok[0];
+      if (baseInfo && baseInfo.w && baseInfo.h){
+        wrap.style.aspectRatio = baseInfo.w + ' / ' + baseInfo.h;
+      }
+      const w0=ok[0].w,h0=ok[0].h;
+      const mismatch=ok.some(x=>x.w!==w0||x.h!==h0);
+      if(mismatch) msg+='Image sizes differ; export all files at identical pixels.';
+    }
+    if(msg){ err.textContent=msg; err.style.display='block'; }
+  });
+
+  // Blend mode
+  $('#blend').addEventListener('change', e=>{
+    document.querySelectorAll('.layer').forEach(el=> el.style.mixBlendMode = e.target.value);
+  });
+
+  // Slider hookup
+  const set = (el, s, pill)=>{ const v = Number(s.value)/100; el.style.opacity = v; pill.textContent = Math.round(v*100)+'%'; };
+  ['input','change'].forEach(evt=>{
+    sliders.wall.addEventListener(evt, ()=>set(EL.wall,sliders.wall,pills.wall));
+    sliders.amb .addEventListener(evt, ()=>set(EL.amb ,sliders.amb ,pills.amb ));
+    sliders.acc .addEventListener(evt, ()=>set(EL.acc ,sliders.acc ,pills.acc ));
+    sliders.dec .addEventListener(evt, ()=>set(EL.dec ,sliders.dec ,pills.dec ));
+  });
+  Object.values(sliders).forEach(s=>s.dispatchEvent(new Event('input')));
+
+  // Presets
+  document.querySelectorAll('.chip').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const p=JSON.parse(btn.dataset.preset);
+      sliders.wall.value=p.wall; sliders.amb.value=p.amb; sliders.acc.value=p.acc; sliders.dec.value=p.dec;
+      Object.values(sliders).forEach(s=>s.dispatchEvent(new Event('input')));
+      document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active')); btn.classList.add('active');
+    });
+  });
+
+  // Reset
+  $('#reset').addEventListener('click', ()=>{
+    sliders.wall.value=60; sliders.amb.value=45; sliders.acc.value=70; sliders.dec.value=35;
+    Object.values(sliders).forEach(s=>s.dispatchEvent(new Event('input')));
+    document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+  });
+
+  /* Alignment Lab — fine controls */
+  const alignList = [
+    {id:'img-wall', name:'Wallwash'}, {id:'img-amb', name:'Ambient'},
+    {id:'img-acc', name:'Accent'}, {id:'img-dec', name:'Decorative'}
+  ];
+  const host = document.getElementById('alignGrid');
+  alignList.forEach(L=>{
+    const row = document.createElement('div');
+    row.style.border = '1px solid var(--line)';
+    row.style.borderRadius = '12px';
+    row.style.padding = '10px';
+    row.innerHTML = `
+      <div style="font-weight:600;margin-bottom:6px">${L.name}</div>
+      <div class="mini">X <input type="range" min="-80" max="80" value="0" step="1" data-k="x" data-id="${L.id}"></div>
+      <div class="mini">Y <input type="range" min="-80" max="80" value="0" step="1" data-k="y" data-id="${L.id}"></div>
+      <div class="mini">Scale <input type="range" min="95" max="105" value="100" step="0.1" data-k="s" data-id="${L.id}"></div>
+    `;
+    host.appendChild(row);
+  });
+  function applyAlign(){
+    document.querySelectorAll('#alignGrid input').forEach(inp=>{
+      const id=inp.dataset.id, k=inp.dataset.k, v=Number(inp.value);
+      const el=document.getElementById(id);
+      const st=el._adj||{x:0,y:0,s:100}; st[k]=v; el._adj=st;
+      el.style.transformOrigin='center center';
+      el.style.transform = `translate(${st.x}px, ${st.y}px) scale(${st.s/100})`;
+    });
+  }
+  host.addEventListener('input', applyAlign); applyAlign();
+
+  // DIFF debug
+  const diff = document.getElementById('diff');
+  diff.addEventListener('change', (e)=>{
+    const mode = e.target.checked ? 'difference' : document.getElementById('blend').value || 'screen';
+    document.querySelectorAll('.layer').forEach(el=> el.style.mixBlendMode = mode);
+  });
+})();
+</script>
+</body>
+</html>
